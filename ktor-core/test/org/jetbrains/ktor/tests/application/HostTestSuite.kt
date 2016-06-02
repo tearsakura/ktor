@@ -455,7 +455,7 @@ abstract class HostTestSuite : HostTestBase() {
     }
 
     @Test
-    fun testMultipartFileUpload() {
+    open fun testMultipartFileUpload() {
         createAndStartServer(port) {
             post("/") {
                 thread {
