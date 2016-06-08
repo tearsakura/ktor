@@ -1,5 +1,6 @@
 package org.jetbrains.ktor.tests.pipeline
 
+import kotlinx.support.jdk7.*
 import org.jetbrains.ktor.pipeline.*
 import org.junit.*
 import java.util.concurrent.*
