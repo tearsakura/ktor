@@ -38,6 +38,10 @@ open class ServletApplicationHost() : HttpServlet() {
         Thread(r, "apphost-pool-thread-${threadCounter.incrementAndGet()}")
     })
 
+    override fun init() {
+        application.setupDefaultHostPages()
+    }
+
     override fun destroy() {
         executorService.shutdown()
         loader.dispose()
