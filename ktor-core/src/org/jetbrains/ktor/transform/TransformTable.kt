@@ -25,7 +25,7 @@ class TransformTable {
     fun copy(): TransformTable {
         val newInstance = TransformTable()
         newInstance.root.leafs.addAll(root.leafs.map { it.copy() })
-        newInstance.cacheChildren(newInstance.root)
+        newInstance.root.leafs.forEach { newInstance.cacheChildren(it) }
 
         return newInstance
     }
