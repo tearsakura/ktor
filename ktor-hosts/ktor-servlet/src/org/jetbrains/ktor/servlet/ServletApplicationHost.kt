@@ -2,9 +2,11 @@ package org.jetbrains.ktor.servlet
 
 import com.typesafe.config.*
 import org.jetbrains.ktor.application.*
+import org.jetbrains.ktor.features.*
 import org.jetbrains.ktor.host.*
 import org.jetbrains.ktor.logging.*
 import org.jetbrains.ktor.pipeline.*
+import org.jetbrains.ktor.transform.*
 import java.util.concurrent.*
 import java.util.concurrent.atomic.*
 import javax.servlet.annotation.*
@@ -40,6 +42,7 @@ open class ServletApplicationHost() : HttpServlet() {
 
     override fun init() {
         application.setupDefaultHostPages()
+        application.install(TransformationSupport)
     }
 
     override fun destroy() {
