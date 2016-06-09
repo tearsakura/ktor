@@ -4,15 +4,17 @@ import java.util.*
 
 internal inline fun <reified T : Any> dfs(): List<Class<*>> = dfs(T::class.java)
 
-internal fun dfs(type: Class<*>): List<Class<*>> {
-    val result = LinkedHashSet<Class<*>>()
-    dfs(mutableListOf(Pair(type, supertypes(type).toMutableList())), ::supertypes, mutableSetOf(type), result)
+internal fun dfs(type: Class<*>): List<Class<*>> = dfs(type, ::supertypes)
+
+internal fun <T> dfs(root: T, parent: (T) -> List<T>): List<T> {
+    val result = LinkedHashSet<T>()
+    dfs(mutableListOf(Pair(root, parent(root).toMutableList())), parent, mutableSetOf(root), result)
 
     return result.toList()
 }
 
 tailrec
-private fun <T> dfs(nodes: MutableList<Pair<T, MutableList<T>>>, parent: (T) -> List<T>, path: MutableSet<T>, visited: MutableSet<T>) {
+internal fun <T> dfs(nodes: MutableList<Pair<T, MutableList<T>>>, parent: (T) -> List<T>, path: MutableSet<T>, visited: MutableSet<T>) {
     if (nodes.isEmpty()) return
 
     val (current, children) = nodes.last()
@@ -32,4 +34,4 @@ private fun <T> dfs(nodes: MutableList<Pair<T, MutableList<T>>>, parent: (T) -> 
 
 
 private fun supertypes(clazz: Class<*>): List<Class<*>> = clazz.superclass?.let { clazz.interfaces.orEmpty().toList() + it } ?: clazz.interfaces.orEmpty().toList()
-private fun <T> MutableList<T>.removeLast(): T = removeAt(lastIndex)
+internal fun <T> MutableList<T>.removeLast(): T = removeAt(lastIndex)
