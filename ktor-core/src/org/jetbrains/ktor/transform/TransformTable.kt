@@ -4,7 +4,12 @@ import java.util.*
 import kotlin.reflect.*
 
 class TransformTable {
-    private val root = Entry(Any::class.java)
+    private val root = Entry(Any::class.java, null)
+    private val cache = HashMap<Class<*>, MutableList<Entry<*>>>(1)
+
+    init {
+        cache[Any::class.java] = mutableListOf<Entry<*>>(root)
+    }
 
     inline fun <reified T : Any> register(noinline predicate: (T) -> Boolean = { true }, noinline handler: (T) -> Any) {
         register(T::class, predicate, handler)
@@ -24,8 +29,8 @@ class TransformTable {
         } else if (node.type.isAssignableFrom(type)) {
             val installed = node.leafs.map { registerImpl(type, it, handler) }.sum()
             if (installed == 0) {
-                val entry = Entry(type)
-                node.leafs.add(entry)
+                val entry = insertEntry(type, node)
+                cache.getOrPut(type) { ArrayList() }.add(entry)
                 return registerImpl(type, entry, handler)
             }
 
@@ -33,6 +38,22 @@ class TransformTable {
         }
 
         return 0
+    }
+
+    private fun <T : Any> insertEntry(type: Class<T>, node: Entry<T>): Entry<T> {
+        val entry = Entry(type, node)
+
+        for (leaf in node.leafs) {
+            if (type in leaf.type.superTypes()) {
+                node.leafs.remove(leaf)
+                leaf.parent = entry
+                entry.leafs.add(leaf)
+                break
+            }
+        }
+
+        node.leafs.add(entry)
+        return entry
     }
 
     tailrec
@@ -59,9 +80,10 @@ class TransformTable {
     }
 
     private fun <T : Any> collect(type: Class<T>) =
-            ArrayList<Handler<T>>().apply {
-                collectImpl(type, mutableListOf<Entry<*>>(root), this)
-            }.asReversed()
+            collectCached(type) ?:
+                    ArrayList<Handler<T>>().apply {
+                        collectImpl(type, mutableListOf<Entry<*>>(root), this)
+                    }.asReversed()
 
     tailrec
     private fun <T : Any> collectImpl(type: Class<T>, nodes: MutableList<Entry<*>>, result: ArrayList<Handler<T>>) {
@@ -71,6 +93,26 @@ class TransformTable {
         nodes.addAll(current.leafs)
 
         collectImpl(type, nodes, result)
+    }
+
+    private fun <T : Any> collectCached(type: Class<T>): List<Handler<T>>? {
+        val exactNodes = cache[type]?.mapNotNull { it.castOrNull(type) }
+        if (exactNodes == null || exactNodes.isEmpty()) {
+            return null
+        }
+
+        val collected = ArrayList<Handler<T>>()
+
+        for (root in exactNodes) {
+            collected.addAll(root.handlers)
+            var current = root.parent
+            while (current != null) {
+                collected.addAll(current.handlers)
+                current = current.parent
+            }
+        }
+
+        return collected
     }
 
     tailrec
@@ -83,7 +125,7 @@ class TransformTable {
     @Suppress("UNCHECKED_CAST")
     private fun <T : Any> Entry<*>.castOrNull(type: Class<T>) = if (this.type.isAssignableFrom(type)) this as Entry<T> else null
 
-    private class Entry<T : Any>(val type: Class<T>) {
+    private class Entry<T : Any>(val type: Class<T>, var parent: Entry<in T>?) {
         val handlers = ArrayList<Handler<T>>()
         val leafs = ArrayList<Entry<T>>()
 
@@ -92,5 +134,24 @@ class TransformTable {
 
     private class Handler<in T>(val predicate: (T) -> Boolean, val handler: (T) -> Any) {
         override fun toString() = handler.toString()
+    }
+
+    private fun <T> Class<T>.superTypes(): Sequence<Class<*>> {
+        var current = listOf<Class<*>>(this)
+        val visited = HashSet<Class<*>>()
+
+        return generateSequence {
+            val next = current.filter { it !in visited }.map {
+                val a = it.interfaces.orEmpty().toList()
+                val b = it.superclass
+
+                if (b == null) a else a + b
+            }.flatMap { it }
+
+            visited.addAll(current)
+            current = next
+
+            if (next.isEmpty()) null else next
+        }.flatMap { it.asSequence() }
     }
 }
